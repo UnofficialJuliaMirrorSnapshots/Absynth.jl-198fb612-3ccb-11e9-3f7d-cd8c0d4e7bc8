@@ -43,6 +43,8 @@ end
 
 # ------------------------------------------------------------------------------
 
+init_var(s::Symbol) = Symbol(string(s, "00"))
+
 struct RecSystem
     vars::Vector{Symbol}
     params::Vector{SymOrNum}
@@ -74,7 +76,8 @@ function loop(l::RecSystem)
     lhss = (Meta.parse ∘ string).(body * vars)
     lhss = [replace(x, CONST_ONE_SYM, one(Int)) for x in lhss]
     rhss = [replace(x, CONST_ONE_SYM, one(Int)) for x in l.vars]
-    init = [:($rhs = $lhs) for (rhs,lhs) in zip(rhss, l.init*map(mkpoly, l.params)) if rhs != one(Int)]
+    pars = map(x->(x isa Symbol ? mkpoly(init_var(x)) : mkpoly(x)), l.params)
+    init = [:($rhs = $lhs) for (rhs,lhs) in zip(rhss, l.init*pars) if rhs != one(Int)]
     assign = [:($rhs = $lhs) for (rhs,lhs) in zip(rhss, lhss) if rhs != lhs]
     striplines(quote
         $(init...)
@@ -114,6 +117,12 @@ function RecurrenceTemplate(vars::Vector{Symbol}, shape::MatrixShape; constone::
 end
 
 Base.size(rt::RecurrenceTemplate) = length(rt.vars)
+
+variables_init(r::RecurrenceTemplate) =
+    [Symbol(string(v)) for v in r.init if !isconstant(v)]
+
+variables_body(r::RecurrenceTemplate) =
+    [Symbol(string(v)) for v in r.body if !isconstant(v)]
 
 # ------------------------------------------------------------------------------
 
